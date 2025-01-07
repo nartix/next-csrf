@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { edgeToken } from '@nartix/edge-token/src';
+import { edgeToken } from '@nartix/edge-token';
 /**
  * Default CSRF options
  */
@@ -7,6 +7,10 @@ const DEFAULT_OPTIONS = {
     headerName: 'X-CSRF-TOKEN',
     formFieldName: 'csrf_token',
     excludeMethods: ['GET', 'HEAD', 'OPTIONS'],
+    algorithm: 'SHA-256',
+    tokenByteLength: 32,
+    separator: '.',
+    enableHeaderCheckForJson: false,
     cookie: {
         name: 'CSRF-TOKEN',
         path: '/',
@@ -34,10 +38,7 @@ export const isServerAction = (req) => {
  */
 async function parseRequestBodyAsJson(req) {
     try {
-        const cloneReq = req.clone();
-        // const text = await req.text();
-        const text = await cloneReq.text();
-        console.log('text =======', text);
+        const text = await req.text();
         return JSON.parse(text);
     }
     catch (error) {
@@ -75,11 +76,13 @@ export const extractCsrfTokenFromForm = async (req, formFieldName) => {
  * Priority is given to a header if present, otherwise we parse JSON from the body.
  * Also handles arrays vs objects for server actions.
  */
-export const extractCsrfTokenFromJsonOrPlainText = async (req, headerName, formFieldName) => {
+export const extractCsrfTokenFromJsonOrPlainText = async (req, headerName, formFieldName, enableHeaderCheckForJson) => {
     // 1) Attempt to extract from header
-    const csrfTokenFromHeader = req.headers.get(headerName);
-    if (csrfTokenFromHeader) {
-        return csrfTokenFromHeader;
+    if (enableHeaderCheckForJson) {
+        const csrfTokenFromHeader = req.headers.get(headerName);
+        if (csrfTokenFromHeader) {
+            return csrfTokenFromHeader;
+        }
     }
     // 2) Parse the body as JSON
     const data = await parseRequestBodyAsJson(req);
@@ -144,8 +147,6 @@ async function validateCsrf(csrfCookieValue, csrfTokenFromRequest, csrf) {
         console.error('CSRF token from request does not match cookie value');
         return false;
     }
-    console.log('csrfTokenFromRequest =======', csrfTokenFromRequest);
-    console.log('edge verify =======', await csrf.verify(csrfTokenFromRequest));
     return !!(await csrf.verify(csrfTokenFromRequest));
 }
 /**
@@ -157,15 +158,14 @@ export const getTokenFromRequest = async (req, options) => {
         return null;
     }
     const contentType = (req.headers.get('content-type') || '').toLowerCase();
-    const { formFieldName, headerName } = options;
+    const { formFieldName, headerName, enableHeaderCheckForJson } = options;
     // 1) If it's form data
     if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
         return extractCsrfTokenFromForm(req, formFieldName);
     }
     // 2) If it's JSON or we detect a server action (usually plain text containing JSON)
     if (contentType.includes('application/json') || contentType.includes('application/ld+json') || isServerAction(req)) {
-        console.log('contentType =======', contentType);
-        return extractCsrfTokenFromJsonOrPlainText(req, headerName, formFieldName);
+        return extractCsrfTokenFromJsonOrPlainText(req, headerName, formFieldName, enableHeaderCheckForJson);
     }
     // Default to no token if it's another content type
     return null;
@@ -181,12 +181,10 @@ export const getTokenFromRequest = async (req, options) => {
  */
 const createNextCsrfMiddleware = async (req, res, options) => {
     const mergedOptions = mergeOptions(DEFAULT_OPTIONS, options);
-    // console.log('mergedOptions =======', mergedOptions);
     if (!mergedOptions.secret) {
         throw new Error('CSRF middleware requires a secret');
     }
     try {
-        console.log('createNextCsrfMiddleware middleware run =======');
         const csrf = await edgeToken(mergedOptions);
         const { headerName, cookie, excludeMethods = [] } = mergedOptions;
         const csrfCookie = req.cookies.get(cookie.name);
@@ -205,14 +203,11 @@ const createNextCsrfMiddleware = async (req, res, options) => {
         }
         // Now retrieve the CSRF token from the request
         const csrfTokenFromRequest = await getTokenFromRequest(req, mergedOptions);
-        console.log('csrfTokenFromRequest =======', csrfTokenFromRequest);
         // If it's a write or server action scenario, we should validate the token
         if (isServerAction(req) || csrfTokenFromRequest || isWriteMethod(req.method)) {
             const csrfCookieValue = csrfCookie?.value;
-            console.log('csrfCookieValue =======', csrfCookieValue);
             const isValid = await validateCsrf(csrfCookieValue, csrfTokenFromRequest, csrf);
             if (!isValid) {
-                console.log('invalid csrf token =======');
                 return invalidCsrfResponse();
             }
         }
