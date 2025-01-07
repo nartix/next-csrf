@@ -1,0 +1,41 @@
+{
+  "name": "@nartix/next-csrf",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "description": "A CSRF middleware for Next.js",
+  "private": false,
+  "scripts": {
+    "test": "jest",
+    "dev": "tsc --watch",
+    "build": "tsc"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "nextjs",
+    "middleware",
+    "csrf",
+    "next-csrf",
+    "edge-token"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nartix/next-csrf.git"
+  },
+  "author": "Feroz Faiz",
+  "license": "MIT",
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "jest": "^29.7.0",
+    "typescript": "latest"
+  },
+  "dependencies": {
+    "@nartix/edge-token": "*"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0"
+  }
+}
