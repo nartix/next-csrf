@@ -28,7 +28,6 @@
   "author": "Feroz Faiz",
   "license": "MIT",
   "devDependencies": {
-    "@repo/typescript-config": "*",
     "jest": "^29.7.0",
     "typescript": "latest"
   },
