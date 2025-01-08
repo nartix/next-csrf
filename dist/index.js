@@ -42,7 +42,7 @@ async function parseRequestBodyAsJson(req) {
         return JSON.parse(text);
     }
     catch (error) {
-        console.error('Error parsing JSON data for CSRF:', error);
+        // Error parsing JSON data for CSRF
         return null;
     }
 }
@@ -56,7 +56,7 @@ export const extractCsrfTokenFromForm = async (req, formFieldName) => {
         // If it's a server action, the field could be suffixed, e.g., "myfield_csrf_token"
         if (isServerAction(req)) {
             const serverActionToken = Array.from(formData.entries())
-                .find(([name]) => name.endsWith(`_${formFieldName}`))?.[1]
+                .find(([name]) => name.endsWith(formFieldName))?.[1]
                 ?.toString() || null;
             if (serverActionToken) {
                 return serverActionToken;
@@ -67,7 +67,7 @@ export const extractCsrfTokenFromForm = async (req, formFieldName) => {
         return token;
     }
     catch (error) {
-        console.error('Error parsing form data for CSRF:', error);
+        // Error parsing form data for CSRF
         throw new Error('Invalid form data');
     }
 };
@@ -140,11 +140,11 @@ function setCookie(res, cookieName, value, cookieOptions) {
  */
 async function validateCsrf(csrfCookieValue, csrfTokenFromRequest, csrf) {
     if (!csrfCookieValue) {
-        console.error('CSRF cookie value is missing');
+        // CSRF cookie value is missing
         return false;
     }
     if (!csrfTokenFromRequest || csrfTokenFromRequest !== csrfCookieValue) {
-        console.error('CSRF token from request does not match cookie value');
+        // CSRF token from request does not match cookie value
         return false;
     }
     return !!(await csrf.verify(csrfTokenFromRequest));
@@ -153,10 +153,6 @@ async function validateCsrf(csrfCookieValue, csrfTokenFromRequest, csrf) {
  * Retrieves the CSRF token from the request by delegating to the correct extractor based on content type.
  */
 export const getTokenFromRequest = async (req, options) => {
-    if (!isWriteMethod(req.method)) {
-        // If it's not a write method, we don't need to extract a token
-        return null;
-    }
     const contentType = (req.headers.get('content-type') || '').toLowerCase();
     const { formFieldName, headerName, enableHeaderCheckForJson } = options;
     // 1) If it's form data
@@ -201,11 +197,18 @@ const createNextCsrfMiddleware = async (req, res, options) => {
         if (excludeMethods.includes(req.method)) {
             return res;
         }
-        // Now retrieve the CSRF token from the request
-        const csrfTokenFromRequest = await getTokenFromRequest(req, mergedOptions);
-        // If it's a write or server action scenario, we should validate the token
-        if (isServerAction(req) || csrfTokenFromRequest || isWriteMethod(req.method)) {
+        // If it's a write or server action scenario
+        if (isWriteMethod(req.method)) {
+            // Now retrieve the CSRF token from the request
+            const csrfTokenFromRequest = await getTokenFromRequest(req, mergedOptions);
+            if (!csrfTokenFromRequest) {
+                return invalidCsrfResponse('CSRF token is missing from the request');
+            }
             const csrfCookieValue = csrfCookie?.value;
+            if (!csrfCookieValue) {
+                return invalidCsrfResponse('CSRF cookie is missing');
+            }
+            // Validate the CSRF token
             const isValid = await validateCsrf(csrfCookieValue, csrfTokenFromRequest, csrf);
             if (!isValid) {
                 return invalidCsrfResponse();

@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-/**
- * Types
- */
 interface CookieOptions {
     name?: string;
     path?: string;
@@ -15,10 +12,12 @@ interface CsrfOptions {
     secret?: string;
     algorithm?: AlgorithmIdentifier;
     tokenByteLength?: number;
+    separator?: string;
     headerName?: string;
     formFieldName?: string;
     cookie: CookieOptions;
     excludeMethods?: string[];
+    enableHeaderCheckForJson?: boolean;
 }
 /**
  * Checks if the request method is one that typically modifies state.
@@ -38,7 +37,7 @@ export declare const extractCsrfTokenFromForm: (req: NextRequest, formFieldName:
  * Priority is given to a header if present, otherwise we parse JSON from the body.
  * Also handles arrays vs objects for server actions.
  */
-export declare const extractCsrfTokenFromJsonOrPlainText: (req: NextRequest, headerName: string, formFieldName: string) => Promise<string | null>;
+export declare const extractCsrfTokenFromJsonOrPlainText: (req: NextRequest, headerName: string, formFieldName: string, enableHeaderCheckForJson: boolean) => Promise<string | null>;
 /**
  * Merges user-provided CSRF options with the defaults.
  */
