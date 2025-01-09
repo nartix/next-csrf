@@ -201,13 +201,7 @@ const createNextCsrfMiddleware = async (req, res, options) => {
         if (isWriteMethod(req.method)) {
             // Now retrieve the CSRF token from the request
             const csrfTokenFromRequest = await getTokenFromRequest(req, mergedOptions);
-            if (!csrfTokenFromRequest) {
-                return invalidCsrfResponse('CSRF token is missing from the request');
-            }
             const csrfCookieValue = csrfCookie?.value;
-            if (!csrfCookieValue) {
-                return invalidCsrfResponse('CSRF cookie is missing');
-            }
             // Validate the CSRF token
             const isValid = await validateCsrf(csrfCookieValue, csrfTokenFromRequest, csrf);
             if (!isValid) {
